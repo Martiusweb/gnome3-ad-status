@@ -1,0 +1,30 @@
+/**
+ * Author: Martin Richard <martius@martiusweb.net>
+ * This code is free software, licensed under GNU/LGPL (as are gnome
+ * libraries).
+ */
+
+#panel.ad-notice, #panel.ad-info {
+    background-color: #49AFCD !important;
+}
+.panel-corner.ad-notice, .panel-corner.ad-info {
+    -panel-corner-background-color: #49AFCD !important;
+}
+#panel.ad-warn {
+    background-color: #F89406 !important;
+}
+.panel-corner.ad-warn {
+    -panel-corner-background-color: #F89406 !important;
+}
+#panel.ad-critical, #panel.ad-error {
+    background-color: #BD362F !important;
+}
+.panel-corner.ad-critical, .panel-corner.ad-error {
+    -panel-corner-background-color: #BD362F !important;
+}
+#panel.ad-success {
+    background-color: #5BB75B !important;
+}
+.panel-corner.ad-success {
+    -panel-corner-background-color: #5BB75B !important;
+}
