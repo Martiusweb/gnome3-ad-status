@@ -1,0 +1,9 @@
+# alwaysdata status extension
+
+This extension will be useless to you as-is, but you can fork it!
+
+# Reminders
+
+Hey myself, don't forget about where to look for the logs:
+
+   journalctl /usr/bin/gnome-session -f -o cat
