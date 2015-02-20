@@ -4,11 +4,19 @@
  * libraries).
  */
 
+const Gio = imports.gi.Gio;
 const St = imports.gi.St;
 const Lang = imports.lang;
 const Main = imports.ui.main;
 const MessageTray = imports.ui.messageTray;
 
+// Duration of the blink effect in seconds
+const BLINK_DURATION = 2;
+
+// Blink frequency in Hz
+const BLINK_FREQUENCY = 8;
+
+// Message levels
 const Levels = ["_normal", "success", "notice", "info", "warn", "critical", "error"];
 const Urgency = {
     "notice": MessageTray.Urgency.NORMAL,
@@ -19,13 +27,50 @@ const Urgency = {
     "error": MessageTray.Urgency.CRITICAL,
 }
 
-// Duration of the blink effect in seconds
-const BLINK_DURATION = 2;
+// DBus interface
+const dbus_iface = '<node> \
+<interface name="com.alwaysdata.status"> \
+<method name="notify"> \
+    <arg name="level" type="s" direction="in"/> \
+    <arg name="body" type="s" direction="in"/> \
+</method> \
+</interface> \
+</node>';
 
-// Blink frequency in Hz
-const BLINK_FREQUENCY = 8;
 
-let ad_status_ui;
+const adStatusBus = new Lang.Class({
+    Name: 'adStatusBus',
+
+    _init: function(ui) {
+        this.ui = ui;
+        this.enabled = false;
+
+        this.dbus_impl = Gio.DBusExportedObject.wrapJSObject(dbus_iface, this);
+    },
+
+    enable: function() {
+        if(this.enabled) {
+            return;
+        }
+
+        this.dbus_impl.export(Gio.DBus.session, '/com/alwaysdata/status');
+        this.enabled = true;
+    },
+
+    disable: function() {
+        if(!this.enabled) {
+            return;
+        }
+
+        this.dbus_impl.unexport();
+        Gio.DBus.session.unown_name(this.dbus_id);
+        this.enabled = true;
+    },
+
+    notify: function(level, body) {
+        this.ui.page(level, body);
+    },
+});
 
 const adStatusUi = new Lang.Class({
     Name: "adStatusUi",
@@ -172,14 +217,19 @@ const adXMPPDaemon = new Lang.Class({
     },
 });
 
+let ad_status_ui, dbus_server;
+
 function init() {
     ad_status_ui = new adStatusUi();
+    dbus_server = new adStatusBus(ad_status_ui);
 }
 
 function enable() {
+    dbus_server.enable();
     ad_status_ui.enable();
 }
 
 function disable() {
     ad_status_ui.disable();
+    dbus_server.disable();
 }
