@@ -2,6 +2,10 @@
 
 This extension will be useless to you as-is, but you can fork it!
 
+# Requirements
+
+Python 3, sleekxmpp, dbus-python (>= 1.0, usually installed on a linux desktop).
+
 # Reminders
 
 Hey myself, don't forget about where to look for the logs:

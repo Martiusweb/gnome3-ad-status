@@ -1,0 +1,21 @@
+# coding: utf-8
+
+# XMPP user
+user = ''
+# XMPP password
+password = ''
+
+# XMPP hostname (if different of the user's domain')
+host = ''
+
+# Port (default is 5222)
+port = 5222
+
+# If false, the TLS certificate will not be checked
+validate_certificate = True
+
+# Name of the users to read messages from
+bots = ('intrabot', )
+
+# Rooms to watch
+rooms = ('team@' + host, 'feeds@' + host, )

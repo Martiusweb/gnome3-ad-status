@@ -1,1 +1,6 @@
 gnome-shell-js/
+*.py[oc]
+.coverage
+.ropeproject
+venv
+settings.py
