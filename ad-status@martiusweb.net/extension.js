@@ -48,33 +48,43 @@ const adStatusBus = new Lang.Class({
     Name: 'adStatusBus',
 
     _init: function(ui) {
-        this.ui = ui;
-        this.enabled = false;
+        this._ui = ui;
+        this._enabled = false;
 
-        this.dbus_impl = Gio.DBusExportedObject.wrapJSObject(dbus_iface, this);
+        this._dbus_impl = Gio.DBusExportedObject.wrapJSObject(dbus_iface, this);
     },
 
     enable: function() {
-        if(this.enabled) {
+        if(this._enabled) {
             return;
         }
 
-        this.dbus_impl.export(Gio.DBus.session, '/com/alwaysdata/status');
-        this.enabled = true;
+        this._dbus_impl.export(Gio.DBus.session, '/com/alwaysdata/status');
+        this._enabled = true;
     },
 
     disable: function() {
-        if(!this.enabled) {
+        if(!this._enabled) {
             return;
         }
 
-        this.dbus_impl.unexport();
-        Gio.DBus.session.unown_name(this.dbus_id);
-        this.enabled = true;
+        this._dbus_impl.unexport();
+        Gio.DBus.session.unown_name(this._dbus_id);
+        this._enabled = true;
     },
 
     notify: function(level, body) {
-        this.ui.page(level, body);
+        if(['critical', 'error'].contains(level)) {
+            this.criical_errors++;
+        }
+        else if(level == 'success' && this.critical_errors > 0) {
+            if(--this.critical_errors == 0) {
+                // Reset to a normal level
+                this._ui.resetLevel();
+            }
+        }
+
+        this._ui.page(level, body);
     },
 });
 
@@ -85,6 +95,8 @@ const adStatusUi = new Lang.Class({
         this._current_level = 0;
         this._blinking = false;
         this._blinking_handle = 0;
+
+        this._current_error_count = 0;
     },
 
     enable: function() {
@@ -121,13 +133,7 @@ const adStatusUi = new Lang.Class({
     },
 
     _buttonPressed: function() {
-        // Testing
-        if(this._current_level == 0) {
-            this.page("warn", "Test warn!");
-        }
-        else {
-            this.page("critical", "Test critical!");
-        }
+        this.resetLevel();
     },
 
     page: function(level, message) {
@@ -191,6 +197,11 @@ const adStatusUi = new Lang.Class({
                 this._blinking_handle = Main.Mainloop.timeout_add(period, blink_off);
             }
             else {
+                // non persistent style for non urgent notifications (success,
+                // info)
+                if(this._current_level < 4) {
+                    Main.panel._removeStyleClassName(css_class);
+                }
                 this._blinking_handle = 0;
                 this._blinking = false;
             }
@@ -220,11 +231,11 @@ const adXMPPDaemon = new Lang.Class({
     Name: "adXMPPDaemon",
 
     _init: function(ui) {
-        this.ui = ui;
-        this.started = false;
-        this.nb_abnormal_stop = 0;
-        this.stop_called = false;
-        this.pid = null;
+        this._ui = ui;
+        this._started = false;
+        this._nb_abnormal_stop = 0;
+        this._stop_called = false;
+        this._pid = null;
     },
 
     start: function(notify) {
@@ -251,41 +262,41 @@ const adXMPPDaemon = new Lang.Class({
 
         // Watch when the process terminates
         GLib.child_watch_add(GLib.PRIORITY_DEFAULT, pid,
-                             Lang.bind(this, this.on_termination));
-        this.pid = pid;
-        this.started = success;
+                             Lang.bind(this, this._on_termination));
+        this._pid = pid;
+        this._started = success;
 
         if(notify) {
-            this.ui.page('success', 'XMPP Daemon running');
+            this._ui.page('success', 'XMPP Daemon running');
         }
     },
 
     stop: function() {
-        if(!this.started) {
+        if(!this._started) {
             return;
         }
 
-        this.nb_abnormal_stop = 0;
-        this.stop_called = true;
-        Util.spawn(['kill', '' + this.pid])
+        this._nb_abnormal_stop = 0;
+        this._stop_called = true;
+        Util.spawn(['kill', '' + this._pid])
     },
 
     on_termination: function() {
-        this.started = false;
-        this.pid = null;
+        this._started = false;
+        this._pid = null;
 
         // did we call stop or was it a mistake?
-        if(!this.stop_called) {
+        if(!this._stop_called) {
             // It doesn't look like a normal stop, we should restart the daemon
-            this.nb_abnormal_stop++;
+            this._nb_abnormal_stop++;
 
-            if(this.nb_abnormal_stop >= MAX_ABNORMAL_STOPS) {
-                this.ui.page("warning", "XMPP Daemon is not running, check the logs");
+            if(this._nb_abnormal_stop >= MAX_ABNORMAL_STOPS) {
+                this._ui.page("warning", "XMPP Daemon is not running, check the logs");
                 return;
             }
-            this.start(true);
+            this._start(true);
         }
-        this.stop_called = false;
+        this._stop_called = false;
     },
 });
 
