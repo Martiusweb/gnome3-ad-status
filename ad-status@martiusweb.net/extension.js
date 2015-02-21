@@ -5,16 +5,22 @@
  */
 
 const Gio = imports.gi.Gio;
-const St = imports.gi.St;
+const GLib = imports.gi.GLib;
 const Lang = imports.lang;
 const Main = imports.ui.main;
+const Me = imports.misc.extensionUtils.getCurrentExtension();
 const MessageTray = imports.ui.messageTray;
+const St = imports.gi.St;
+const Util = imports.misc.util;
 
 // Duration of the blink effect in seconds
 const BLINK_DURATION = 2;
 
 // Blink frequency in Hz
 const BLINK_FREQUENCY = 8;
+
+// Max abnormal stops of the daemon
+const MAX_ABNORMAL_STOPS = 3;
 
 // Message levels
 const Levels = ["_normal", "success", "notice", "info", "warn", "critical", "error"];
@@ -150,6 +156,7 @@ const adStatusUi = new Lang.Class({
         let level_int = Levels.indexOf(level);
 
         if(level_int > 0 && level_int >= this._current_level) {
+            this.resetLevel();
             this._current_level = level_int;
             this._makePanelBlink();
         }
@@ -212,24 +219,93 @@ const adStatusUi = new Lang.Class({
 const adXMPPDaemon = new Lang.Class({
     Name: "adXMPPDaemon",
 
-    _init: function() {
-        // Ask systemd to start a background task?
+    _init: function(ui) {
+        this.ui = ui;
+        this.started = false;
+        this.nb_abnormal_stop = 0;
+        this.stop_called = false;
+        this.pid = null;
+    },
+
+    start: function(notify) {
+        let sucess, argv, pid;
+
+        [success, argv] = GLib.shell_parse_argv(
+            'python ' + Me.path + '/ad-xmpp-watcher/xmppwatcher.py')
+
+        try {
+            // See gnome-js/misc/util.js:trySpawn
+            let flags = (GLib.SpawnFlags.SEARCH_PATH |
+                         GLib.SpawnFlags.DO_NOT_REAP_CHILD);
+            [success, pid] = GLib.spawn_async(null, argv, null, flags, null);
+        }
+        catch(err) {
+            if (err instanceof GLib.Error) {
+                // Reformat error message
+                let message = err.message.replace(/.*\((.+)\)/, '$1');
+                throw new (err.constructor)({code: err.code, message: message});
+            } else {
+                throw err;
+            }
+        }
+
+        // Watch when the process terminates
+        GLib.child_watch_add(GLib.PRIORITY_DEFAULT, pid,
+                             Lang.bind(this, this.on_termination));
+        this.pid = pid;
+        this.started = success;
+
+        if(notify) {
+            this.ui.page('success', 'XMPP Daemon running');
+        }
+    },
+
+    stop: function() {
+        if(!this.started) {
+            return;
+        }
+
+        this.nb_abnormal_stop = 0;
+        this.stop_called = true;
+        Util.spawn(['kill', '' + this.pid])
+    },
+
+    on_termination: function() {
+        this.started = false;
+        this.pid = null;
+
+        // did we call stop or was it a mistake?
+        if(!this.stop_called) {
+            // It doesn't look like a normal stop, we should restart the daemon
+            this.nb_abnormal_stop++;
+
+            if(this.nb_abnormal_stop >= MAX_ABNORMAL_STOPS) {
+                this.ui.page("warning", "XMPP Daemon is not running, check the logs");
+                return;
+            }
+            this.start(true);
+        }
+        this.stop_called = false;
     },
 });
 
-let ad_status_ui, dbus_server;
+let ad_status_ui, dbus_server, daemon;
 
 function init() {
     ad_status_ui = new adStatusUi();
     dbus_server = new adStatusBus(ad_status_ui);
+    daemon = new adXMPPDaemon(ad_status_ui);
 }
 
 function enable() {
     dbus_server.enable();
     ad_status_ui.enable();
+    // The daemon must be started after the dbus server
+    daemon.start();
 }
 
 function disable() {
+    daemon.stop();
     ad_status_ui.disable();
     dbus_server.disable();
 }

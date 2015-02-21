@@ -6,11 +6,14 @@ This code is free software, licensed under GNU/LGPL.
 
 import argparse
 import logging
+import os.path
 import sys
 
 import dbus
 
-import settings
+sys.path.insert(0, os.path.dirname(__file__))  # import settings from there
+
+import settings  # NOQA path must be updated first
 
 if not settings.validate_certificate:
     sys.modules['pyasn1'] = None
@@ -83,10 +86,8 @@ class RoomsWatcher(sleekxmpp.ClientXMPP):
                 self.on_bot_message(author, message['body'])
 
     def on_bot_message(self, author, body):
-        print(author, "SAID:", body)
-
         try:
-            self.emitter('error', "{}: {}".format(author, body))
+            self.emitter.notify('error', "{}: {}".format(author, body))
         except Exception:
             logging.exception("Failed to send dbus message")
 
