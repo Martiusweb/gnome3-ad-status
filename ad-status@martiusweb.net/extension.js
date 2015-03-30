@@ -74,7 +74,7 @@ const adStatusBus = new Lang.Class({
     },
 
     notify: function(level, body) {
-        if(['critical', 'error'].contains(level)) {
+        if(['critical', 'error'].indexOf(level) != -1) {
             this.criical_errors++;
         }
         else if(level == 'success' && this.critical_errors > 0) {

@@ -91,12 +91,12 @@ class RoomsWatcher(sleekxmpp.ClientXMPP):
                 status = body.split(':')[-1].split()[0]
                 if status == 'resolve':
                     level = 'success'
-                elif status == 'aknowledge':
+                elif status == 'acknowledge':
                     level = 'info'
                 else:
                     level = 'critical'
 
-            self.emitter.notify(level, "{}: {}".format(author, body))
+                self.emitter.notify(level, "{}: {}".format(author, body))
         except Exception:
             logging.exception("Failed to send dbus message")
 
